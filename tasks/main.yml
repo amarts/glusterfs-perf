@@ -14,6 +14,10 @@
   set_fact:
         gluster_clients: "{{ glusterfs_perf_clients|join(',') }}"
 
+# tasks file for passwordless ssh
+- name: Create passwordless ssh mesh
+  import_tasks: passwordless-ssh.yml
+
 # tasks file for glusterfs-perf
 - name: Pre-requisites for setting up Gluster HCI
   import_tasks: prereq.yml
