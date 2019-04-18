@@ -70,9 +70,101 @@ glusterfs-perf role and change the variables appropriately and run the command:
 
 \# gluster-ansible -i \<inventory-file\> cluster_setup.yml
 
+To run the role on a local setup:
+
+1. On the host machine, fetch all the roles:
+   - gluster-ansible-infra
+   - gluster-ansible-cluster
+   - gluster-ansible-roles
+
+   Fetch the glusterfs.perf role too
+   ```
+   $ cd /etc/ansible/roles
+   $ git clone https://github.com/gluster/glusterfs-perf.git
+   $ mv glusterfs-perf glusterfs.perf
+   ```
+
+2. Skip this step if you need to run on existing systems
+
+   ```
+   $ mkdir ~/glusterfs-perf-vagrant/
+
+   copy the below below content to Vagrantfile
+   $ cat ~/glusterfs-perf-vagrant/Vagrantfile
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+driveletters = ('a'..'z').to_a
+
+Vagrant.configure("2") do |config|
+
+  config.vm.synced_folder ".", "/vagrant", disabled: true
+  config.vm.synced_folder ".", "/home/vagrant/sync", disabled: true
+  config.vm.box = "centos/7"
+  host_vars = {}
+  (1..3).each do |i|
+    config.vm.define vm_name = "centos#{i}" do |vm|
+      vm.vm.hostname = vm_name
+      vm.vm.provider :libvirt do |lv|
+        lv.default_prefix = "gp"
+        lv.cpus = 4
+        lv.memory = 4096
+        lv.nested = false
+        lv.cpu_mode = "host-passthrough"
+        lv.volume_cache = "writeback"
+        lv.graphics_type = "none"
+        lv.video_type = "vga"
+        lv.video_vram = 1024
+        # lv.usb_controller :model => "none"  # (requires vagrant-libvirt 0.44 which is not in Fedora yet)
+        lv.random :model => 'random'
+        lv.channel :type => 'unix', :target_name => 'org.qemu.guest_agent.0', :target_type => 'virtio'
+        lv.storage :file, :device => "sdb", :size => '1024G'
+      end
+      $script = <<-SCRIPT
+      sudo sed -i -e "\\#PasswordAuthentication no# s#PasswordAuthentication no#PasswordAuthentication yes#g" /etc/ssh/sshd_config
+      SCRIPT
+      $sshrestart = "sudo systemctl restart sshd"
+      config.vm.provision "shell", inline: $script
+      config.vm.provision "shell", inline: $sshrestart
+    end
+  end
+end
+
+   $ cd ~/glusterfs-perf-vagrant
+   $ vagrant up
+   $ for i in {1..3} ; do \
+     new_ip=$(vagrant ssh centos$i -c "ip address show eth0 | grep 'inet ' | sed -e 's/^.*inet //' -e 's/\/.*$//'") ; \
+     echo "$new_ip centos$i" >> /etc/hosts ; \
+     done
+   ```
+
+3. Setup passwordless ssh from the host to all the nodes where the test will be run
+   ```
+   $ ssh-copy-id <NODES>
+   ```
+
+4. Create the inventory file
+   ```
+   $ cat ~/glusterfs-perf-vagrant/inventory.yml
+   [servers]
+   centos1
+   centos2
+
+   [clients]
+   centos3
+   ```
+
+5. Run the ansible playbook with default values:
+   ```
+   $ ansible-playbook -i ~/glusterfs-perf-vagrant/inventory.yml /etc/ansible/roles/glusterfs.perf/playbooks/cluster_setup.yml --extra-vars  "ansible_sudo_pass=<ROOTPASSWD>"
+   ```
+   If you are running the vagrant setup mentioned, the root password will be "vagrant". To run a customised playbook, copy the cluster_setup.yml and change it accordingly, specify the modified plabook location in the above command.
+
+    There are many tags that you can specify while running the playbook:
+    - prereq
+    - fio
 
 License
 -------
 
 GPLv3
-
