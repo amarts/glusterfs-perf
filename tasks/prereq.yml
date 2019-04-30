@@ -45,11 +45,9 @@
 
 - name: Add EPEL repository (we need it for a few extra packages)
   yum:
-    name: "{{ item }}"
+    name: ['http://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm',
+           'https://download.postgresql.org/pub/repos/yum/11/redhat/rhel-7-x86_64/pgdg-centos11-11-2.noarch.rpm']
     state: present
-  with_items:
-    - http://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm
-    - https://download.postgresql.org/pub/repos/yum/11/redhat/rhel-7-x86_64/pgdg-centos11-11-2.noarch.rpm
 
 - name: Install the necessary packages
   yum:
@@ -128,3 +126,12 @@
   make:
     chdir: "{{ glusterfs_perf_git_dest | default('/usr/src/glusterfs') }}"
     target: distclean
+
+# Clean existing result directory
+- name: Clean existing result directory
+  file:
+     state: absent
+     path: "{{ glusterfs_perf_resdir }}/*"
+  delegate_to: "{{ glusterfs_perf_client | default(glusterfs_perf_server) }}"
+  run_once: true
+  ignore_errors: true

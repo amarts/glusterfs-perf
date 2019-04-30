@@ -1,0 +1,80 @@
+---
+# Move the results dir to git repo
+- name: Git clone the results repo
+  git:
+    clone: yes
+    depth: 1
+    update: yes
+    dest: "{{ glusterfs_perf_res_basedir }}/gluster-perf-results"
+    repo: https://github.com/poornimag/gluster-perf-results.git
+  delegate_to: "{{ glusterfs_perf_client | default(glusterfs_perf_server) }}"
+  run_once: true
+
+- name: For nightly runs move the results to nightly folder in results git repo
+  command: mv {{ glusterfs_perf_resdir }} {{ glusterfs_perf_res_basedir }}/gluster-perf-results/nightly/
+  delegate_to: "{{ glusterfs_perf_client | default(glusterfs_perf_server) }}"
+  run_once: true
+  tags:
+    - nightly
+
+- name: For release runs move the results to release folder in results git repo
+  command: mv {{ glusterfs_perf_resdir }} {{ glusterfs_perf_res_basedir }}/gluster-perf-results/release/
+  delegate_to: "{{ glusterfs_perf_client | default(glusterfs_perf_server) }}"
+  run_once: true
+  tags:
+    - release
+
+- name: For per patch related runs create a temperory directory for results
+  file:
+    state: directory
+    path: "{{ glusterfs_perf_res_basedir }}/gluster-perf-results/tmp/"
+  delegate_to: "{{ glusterfs_perf_client | default(glusterfs_perf_server) }}"
+  run_once: true
+  tags:
+    - patch
+
+- name: For per patch related runs move to a temperory directory
+  command: mv {{ glusterfs_perf_resdir }} {{ glusterfs_perf_res_basedir }}/gluster-perf-results/tmp/
+  delegate_to: "{{ glusterfs_perf_client | default(glusterfs_perf_server) }}"
+  run_once: true
+  tags:
+    - patch
+
+- name: For nightly runs generate the csv file
+  command: "{{ glusterfs_perf_res_basedir }}/gluster-perf-results/generate_csv.py {{ glusterfs_perf_res_basedir }}/gluster-perf-results/nightly {{ glusterfs_perf_resultdir }}"
+  delegate_to: "{{ glusterfs_perf_client | default(glusterfs_perf_server) }}"
+  run_once: true
+  tags:
+    - nightly
+
+- name: For release runs generate the csv file
+  command: "{{ glusterfs_perf_res_basedir }}/gluster-perf-results/generate_csv.py {{ glusterfs_perf_res_basedir }}/gluster-perf-results/release {{ glusterfs_perf_resultdir }}"
+  delegate_to: "{{ glusterfs_perf_client | default(glusterfs_perf_server) }}"
+  run_once: true
+  tags:
+    - nightly
+
+# TODO: If tag is patch, find the deviation wrt last nightly and last release
+
+- name: Set git username and email
+  command: git config --global user.name "{{ glusterfs_perf_git_username }}" ; git config --global user.email "{{ glusterfs_perf_git_username }}@gluster.org" ; git push https://{{ glusterfs_perf_git_username }}:{{ glusterfs_perf_git_password }}@github.com/gluster/gluster-perf-results.git
+  delegate_to: "{{ glusterfs_perf_client | default(glusterfs_perf_server) }}"
+  run_once: true
+  tags:
+    - nightly | patch
+
+- name: Create a git commit out of the results
+  command: cd {{ glusterfs_perf_res_basedir }}/gluster-perf-results ; git add {{ glusterfs_perf_resultdir }} ; git commit -s -a -m "Adding results from run {{ glusterfs_perf_resultdir }}" ; git push https://{{ glusterfs_perf_git_username }}:{{ glusterfs_perf_git_password }}@github.com/gluster/gluster-perf-results.git
+  delegate_to: "{{ glusterfs_perf_client | default(glusterfs_perf_server) }}"
+  run_once: true
+  tags:
+    - nightly | patch
+
+- name: Git push the results to gluster-perf-results.git
+  command: git push https://{{ glusterfs_perf_git_username }}:{{ glusterfs_perf_git_password }}@github.com/gluster/gluster-perf-results.git
+  delegate_to: "{{ glusterfs_perf_client | default(glusterfs_perf_server) }}"
+  run_once: true
+  tags:
+    - nightly | patch
+
+# TODO: If tag is patch, reply the text blob as a mail or ??

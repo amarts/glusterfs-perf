@@ -34,7 +34,7 @@
 - name: Run smallfile perf tool
   import_tasks: smallfile/smallfile-perf.yml
   tags:
-    - runperf
+    - runperf, smallfile
 
 # These tests are failing to execute due to some setup issues.
 # Please check and uncomment once fixed and tested.
@@ -55,6 +55,10 @@
 #   import_tasks: untar/untar-run.yml
 #   tags:
 #     - runperf, untar
+
+# Move results to the git repo and push it to github
+- name: Move results to the git repo and push it to github
+  import_tasks: results.yml
 
 # Send mail attaching the results
 - name: Send mail attaching the results
